@@ -1,0 +1,3 @@
+Header set Last-Modified "Wed, 14 Apr 2004 09:17:22 GMT"
+Header unset ETag
+FileETag None
