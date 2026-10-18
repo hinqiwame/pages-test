@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>…</title>
-<link rel="icon" href="image.jpg" type="image/jpeg">
+<link rel="icon" href="../image.jpg" type="image/jpeg">
 <style>
   html, body {
     margin: 0;
@@ -84,6 +84,10 @@
 </head>
 <body>
 
+  <!-- Q: how many times must I knock? -->
+  <!-- A: as many as it takes to hear the fifth one clearly. -->
+  <!-- Q: what happens after the sixth? -->
+  <!-- A: we do not answer that question anymore. -->
   <div id="deny">
     <div class="message">You do not have access to view this page.</div>
     <div class="back">click to go back</div>
@@ -93,7 +97,6 @@
   const message = document.querySelector('#deny .message');
   const back = document.querySelector('#deny .back');
 
-  // gradual reveal
   setTimeout(() => message.classList.add('visible'), 400);
   setTimeout(() => back.classList.add('visible'), 1600);
 
