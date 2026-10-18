@@ -49,12 +49,10 @@
     letter-spacing: 2px;
   }
 
-  /* Эффект мерцания только для первой строки */
   #start-text {
     animation: flicker 4s infinite;
   }
 
-  /* Вторая подпись плавно проявляется */
   #sub-text {
     font-size: 14px;
     color: #555;
@@ -102,6 +100,34 @@
     opacity: 0.85;
   }
 
+  /* ---------- SHARED LABEL / INPUT STYLE ---------- */
+  .vk-label {
+    display: block;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #555;
+    margin-bottom: 8px;
+  }
+  .vk-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #333;
+    color: #999;
+    font-family: inherit;
+    font-size: 16px;
+    letter-spacing: 4px;
+    text-align: center;
+    outline: none;
+    width: 220px;
+    max-width: 100%;
+    padding: 6px 0;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .vk-input:focus {
+    border-bottom-color: #666;
+  }
+
   /* ---------- CODE INPUT ---------- */
   #codebox {
     position: fixed;
@@ -116,32 +142,6 @@
   #codebox.visible {
     opacity: 1;
   }
-  #codebox label {
-    display: block;
-    font-size: 13px;
-    letter-spacing: 2px;
-    color: #555;
-    margin-bottom: 8px;
-  }
-  #code {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #333;
-    color: #999;
-    font-family: inherit;
-    font-size: 16px;           /* 16px — чтобы iOS не зумил при фокусе */
-    letter-spacing: 4px;
-    text-align: center;
-    outline: none;
-    width: 220px;
-    max-width: 100%;
-    padding: 6px 0;
-    user-select: text;
-    -webkit-user-select: text;
-  }
-  #code:focus {
-    border-bottom-color: #666;
-  }
   #msg {
     margin-top: 14px;
     font-size: 12px;
@@ -154,6 +154,143 @@
   #msg.show {
     opacity: 1;
     transition: opacity 0.7s ease-in;
+  }
+
+  /* ---------- DECAY OVERLAY ---------- */
+  #decay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 3px),
+      #000;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  #decay.visible {
+    opacity: 1;
+    pointer-events: auto;
+    animation: flicker 1.15s infinite;
+  }
+  #decay.flash {
+    background: #fff;
+    animation: none;
+    transition: background 0.1s linear;
+  }
+  .glitch-bar {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: #cfcfcf;
+    mix-blend-mode: difference;
+  }
+
+  /* ---------- PSYCHEDELIC MESSAGE STAGE ---------- */
+  #psycho {
+    position: fixed;
+    inset: 0;
+    z-index: 21;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease-in;
+    padding: 0 10vw;
+    box-sizing: border-box;
+  }
+  #psycho.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #psycho-text {
+    text-align: center;
+    font-size: clamp(16px, 4vw, 27px);
+    letter-spacing: 2px;
+    max-width: 80vw;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  #psycho-text.show {
+    opacity: 1;
+  }
+
+  /* ---------- COMMENT INPUT ---------- */
+  #commentbox {
+    position: fixed;
+    inset: 0;
+    z-index: 21;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease-in;
+  }
+  #commentbox.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #comment {
+    width: min(480px, calc(100vw - 60px));
+    letter-spacing: 1px;
+  }
+
+  /* ---------- SCREAMER ---------- */
+  #screamer {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #screamer.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #screamer-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---------- FINAL LINK ---------- */
+  #finalLink {
+    position: fixed;
+    bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1.2s ease-in;
+    width: min(400px, calc(100vw - 40px));
+  }
+  #finalLink.visible {
+    opacity: 1;
+  }
+  #tg-link {
+    color: #999;
+    text-decoration: none;
+    letter-spacing: 3px;
+    font-size: 15px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+    transition: color 0.3s ease, border-color 0.3s ease;
+  }
+  @media (hover: hover) {
+    #tg-link:hover {
+      color: #ccc;
+      border-color: #666;
+    }
   }
 </style>
 </head>
@@ -172,46 +309,124 @@
     <img id="mystery" src="image.jpg" alt="">
 
     <div id="codebox">
-      <label>enter your code</label>
-      <input id="code" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" maxlength="8">
+      <label class="vk-label">enter your code</label>
+      <input id="code" class="vk-input" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" maxlength="8">
       <div id="msg"></div>
+    </div>
+
+    <div id="finalLink">
+      <div class="vk-label">you have been counted.</div>
+      <a id="tg-link" href="https://t.me/+XUUPj21ROMlhZDll" target="_blank" rel="noopener noreferrer">[ enter ]</a>
     </div>
   </div>
 
+  <div id="decay"></div>
+
+  <div id="psycho">
+    <div id="psycho-text"></div>
+  </div>
+
+  <div id="commentbox">
+    <label class="vk-label">enter your comment</label>
+    <input id="comment" class="vk-input" type="text" autocomplete="off" spellcheck="false" maxlength="140">
+  </div>
+
+  <div id="screamer">
+    <img id="screamer-img" src="screamer.gif" alt="">
+    <audio id="screamer-audio" src="screamer.mp3" preload="auto"></audio>
+  </div>
+
 <script>
-  const start     = document.getElementById('start');
-  const startText = document.getElementById('start-text');
-  const subText   = document.getElementById('sub-text');
-  const stage     = document.getElementById('stage');
-  const audio     = document.getElementById('track');
-  const img       = document.getElementById('mystery');
-  const codebox   = document.getElementById('codebox');
-  const input     = document.getElementById('code');
-  const msg       = document.getElementById('msg');
+  const start      = document.getElementById('start');
+  const startText  = document.getElementById('start-text');
+  const subText    = document.getElementById('sub-text');
+  const stage      = document.getElementById('stage');
+  const audio      = document.getElementById('track');
+  const img        = document.getElementById('mystery');
+  const codebox    = document.getElementById('codebox');
+  const input      = document.getElementById('code');
+  const msg        = document.getElementById('msg');
+  const decay      = document.getElementById('decay');
+  const psycho     = document.getElementById('psycho');
+  const psychoText = document.getElementById('psycho-text');
+  const commentbox = document.getElementById('commentbox');
+  const commentInp = document.getElementById('comment');
+  const screamer   = document.getElementById('screamer');
+  const screamerAu = document.getElementById('screamer-audio');
+  const finalLink  = document.getElementById('finalLink');
 
   let msgTimeout = null;
+
+  // ===== Хранилище состояния квеста =====
+  function safeGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeSet(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) {}
+  }
 
   // ===== Посещения (с 3-го визита) =====
   let visitCount = 0;
   try {
-    visitCount = parseInt(localStorage.getItem('visitCount') || '0', 10) || 0;
+    visitCount = parseInt(safeGet('visitCount') || '0', 10) || 0;
     visitCount += 1;
-    localStorage.setItem('visitCount', String(visitCount));
+    safeSet('visitCount', String(visitCount));
   } catch (e) {
     visitCount = 0;
   }
 
-  if (visitCount >= 3) {
-    startText.textContent = 'Welcome back.';
-    subText.textContent = 'click to enter...';
-
-    setTimeout(() => {
-      subText.classList.add('visible');
-    }, 1500);
+  // ===== Уникальный seed посетителя (не меняется между визитами) =====
+  function genSeed() {
+    try {
+      const arr = new Uint32Array(2);
+      (window.crypto || window.msCrypto).getRandomValues(arr);
+      const n = (arr[0] ^ (arr[1] << 1)) >>> 0;
+      return String(n % 100000000).padStart(8, '0');
+    } catch (e) {
+      return String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+    }
   }
 
-  // Статичный код
-  const VALID_CODE = '20040414';
+  let seed = safeGet('vk_seed');
+  if (!seed) {
+    seed = genSeed();
+    safeSet('vk_seed', seed);
+  }
+
+  // ===== Прогресс (какие коды уже найдены) и финальное состояние =====
+  let progress = parseInt(safeGet('vk_progress') || '0', 10) || 0;
+  const completed = safeGet('vk_completed') === '1';
+
+  function setProgress(n) {
+    if (n > progress) {
+      progress = n;
+      safeSet('vk_progress', String(progress));
+    }
+  }
+
+  // Код каждого уровня зависит только от персонального seed —
+  // поэтому один и тот же код не сработает у другого человека.
+  function deriveCode(index) {
+    const digits = seed.split('').map(Number);
+    let out = '';
+    for (let i = 0; i < 8; i++) {
+      const d = digits[(i + index * 3) % digits.length];
+      const v = (d * 7 + index * 13 + i * 5) % 10;
+      out += v;
+    }
+    return out;
+  }
+
+  // ===== Текст стартового экрана =====
+  if (completed) {
+    startText.textContent = 'Welcome back.';
+    subText.textContent = 'click to enter...';
+    setTimeout(() => subText.classList.add('visible'), 1500);
+  } else if (visitCount >= 3) {
+    startText.textContent = 'Welcome back.';
+    subText.textContent = 'click to enter...';
+    setTimeout(() => subText.classList.add('visible'), 1500);
+  }
 
   start.addEventListener('click', () => {
     audio.volume = 0.4;
@@ -221,41 +436,230 @@
     start.classList.add('hidden');
     setTimeout(() => stage.classList.add('visible'), 50);
     setTimeout(() => img.classList.add('loaded'), 100);
-    setTimeout(() => codebox.classList.add('visible'), 400);
-    setTimeout(() => input.focus(), 800);
+
+    if (completed) {
+      setTimeout(() => finalLink.classList.add('visible'), 500);
+    } else {
+      setTimeout(() => codebox.classList.add('visible'), 400);
+      setTimeout(() => input.focus(), 800);
+    }
   });
 
-  // Только цифры, максимум 8
+  // ===== Пул «обычных» сообщений (коды 1–5) =====
+  const poolA = [
+    'we have been counting your breaths since you arrived.',
+    'the door behind you is thinner than it looks.',
+    'someone else tried this code. we remember them differently now.',
+    'your reflection answered first.',
+    'this is not the first body that has asked.',
+    'we already know what you are looking for.',
+    'the organs you have are borrowed. the paperwork is incomplete.',
+    'stop counting your fingers. it will not help.',
+    'there is a second code inside the first.',
+    'we are closer than the cursor.'
+  ];
+
+  function showFlavor() {
+    const text = poolA[Math.floor(Math.random() * poolA.length)];
+    msg.textContent = text;
+    msg.classList.add('show');
+    if (msgTimeout) clearTimeout(msgTimeout);
+    msgTimeout = setTimeout(() => msg.classList.remove('show'), 4000);
+  }
+
+  // ===== Детюн трека (код #5) =====
+  let audioCtx = null;
+  let detuned = false;
+
+  function triggerDetune() {
+    if (detuned) return;
+    detuned = true;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const sourceNode = audioCtx.createMediaElementSource(audio);
+      const filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = 'lowpass';
+      filterNode.frequency.value = 20000;
+      sourceNode.connect(filterNode).connect(audioCtx.destination);
+      filterNode.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 3);
+
+      const startRate = audio.playbackRate || 1;
+      const endRate = 0.72;
+      const start = performance.now();
+      const duration = 3000;
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        audio.playbackRate = startRate + (endRate - startRate) * t;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    } catch (e) {
+      // если Web Audio недоступен — тихо продолжаем без эффекта
+    }
+  }
+
+  // ===== Проверка кода =====
   input.addEventListener('input', () => {
     input.value = input.value.replace(/\D/g, '').slice(0, 8);
   });
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!input.value) return;
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!input.value) return;
 
-      const code = input.value;
+    const code = input.value;
+    input.value = '';
+    if (msgTimeout) clearTimeout(msgTimeout);
 
-      if (msgTimeout) clearTimeout(msgTimeout);
+    let matched = 0;
+    for (let i = 1; i <= 6; i++) {
+      if (code === deriveCode(i)) { matched = i; break; }
+    }
 
-      if (code === VALID_CODE) {
-        msg.textContent = 'access for this code has been revoked. contact administration.';
-        msg.classList.add('show');
-        input.value = '';
-        msgTimeout = setTimeout(() => {
-          msg.classList.remove('show');
-        }, 4000);
+    if (!matched) {
+      msg.textContent = 'no such code exists';
+      msg.classList.add('show');
+      msgTimeout = setTimeout(() => msg.classList.remove('show'), 2000);
+      return;
+    }
+
+    if (matched <= 4) {
+      setProgress(matched);
+      showFlavor();
+    } else if (matched === 5) {
+      setProgress(5);
+      showFlavor();
+      triggerDetune();
+    } else if (matched === 6) {
+      if (progress >= 5) {
+        beginFinale();
       } else {
-        msg.textContent = 'no such code exists';
+        msg.textContent = 'the gate remembers who has not yet knocked.';
         msg.classList.add('show');
-        input.value = '';
-        msgTimeout = setTimeout(() => {
-          msg.classList.remove('show');
-        }, 2000);
+        msgTimeout = setTimeout(() => msg.classList.remove('show'), 4000);
       }
     }
   });
+
+  // ===== Финальная цепочка (код #6) =====
+  function beginFinale() {
+    codebox.classList.remove('visible');
+    input.blur();
+    input.disabled = true;
+
+    try { audio.pause(); } catch (e) {}
+
+    decay.classList.add('visible');
+    runDecay();
+  }
+
+  function spawnGlitchBar() {
+    const bar = document.createElement('div');
+    bar.className = 'glitch-bar';
+    bar.style.top = (Math.random() * 100) + 'vh';
+    bar.style.height = (2 + Math.random() * 18) + 'px';
+    bar.style.opacity = (0.15 + Math.random() * 0.5).toFixed(2);
+    decay.appendChild(bar);
+    setTimeout(() => bar.remove(), 220 + Math.random() * 260);
+  }
+
+  function runDecay() {
+    const totalDuration = 9000;
+    const stepTime = 140;
+    const steps = Math.round(totalDuration / stepTime);
+    let i = 0;
+    const timer = setInterval(() => {
+      i++;
+      const intensity = i / steps;
+      if (Math.random() < 0.18 + intensity * 0.3) spawnGlitchBar();
+      if (i >= steps) {
+        clearInterval(timer);
+        flashAndCut();
+      }
+    }, stepTime);
+  }
+
+  function flashAndCut() {
+    decay.classList.add('flash');
+    setTimeout(() => {
+      decay.classList.remove('visible', 'flash');
+      decay.innerHTML = '';
+      startPsycho();
+    }, 260);
+  }
+
+  const psychoMessages = [
+    'how is your gut today?',
+    'your lungs are filling with mercury.',
+    'we kept the part that still remembers your mother\'s voice.',
+    'your spine has been reassigned.',
+    'blink twice if you can still feel your hands.',
+    'the liver goes first. it always goes first.',
+    'we are borrowing your heartbeat for a while.',
+    'your eyes were never really yours.',
+    'something is counting your ribs from the inside.',
+    'the organs you donated have not been donated yet.',
+    'stop breathing in that rhythm. it is not yours.',
+    'you will not remember typing this.',
+    'there is still time to close the tab. there was never time.',
+    'welcome to the catalog.'
+  ];
+  const psychoColors = ['#8a8a8a', '#6a2a2a'];
+
+  function startPsycho() {
+    psycho.classList.add('visible');
+    let idx = 0;
+    function showNext() {
+      if (idx >= psychoMessages.length) {
+        psycho.classList.remove('visible');
+        setTimeout(startComment, 600);
+        return;
+      }
+      psychoText.style.color = psychoColors[idx % psychoColors.length];
+      psychoText.textContent = psychoMessages[idx];
+      psychoText.classList.add('show');
+      setTimeout(() => {
+        psychoText.classList.remove('show');
+        setTimeout(showNext, 450);
+      }, 2300);
+      idx++;
+    }
+    showNext();
+  }
+
+  function startComment() {
+    commentbox.classList.add('visible');
+    setTimeout(() => commentInp.focus(), 400);
+  }
+
+  commentInp.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!commentInp.value.trim()) return;
+    commentbox.classList.remove('visible');
+    setTimeout(triggerScreamer, 400);
+  });
+
+  function triggerScreamer() {
+    screamer.classList.add('visible');
+    try {
+      screamerAu.currentTime = 0;
+      const p = screamerAu.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) {}
+
+    setTimeout(() => {
+      screamer.classList.remove('visible');
+      try { screamerAu.pause(); } catch (e) {}
+      finishQuest();
+    }, 10000);
+  }
+
+  function finishQuest() {
+    safeSet('vk_completed', '1');
+    finalLink.classList.add('visible');
+  }
 </script>
 
 </body>
