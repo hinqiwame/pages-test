@@ -336,6 +336,83 @@
     <audio id="screamer-audio" src="screamer.mp3" preload="auto"></audio>
   </div>
 
+<!-- TODO: strip legacy paths from robots.txt before launch -->
+<script>
+/* session layer v2.3 - gateway handshake, presence, access state */
+(function () {
+  'use strict';
+  function h32(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    h ^= h >>> 15; h = Math.imul(h, 2246822507) >>> 0;
+    h ^= h >>> 13; h = Math.imul(h, 3266489909) >>> 0;
+    h ^= h >>> 16; return h >>> 0;
+  }
+  var K = { 1: 841981507, 2: 1933059961 };
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var seed = get('vk_seed');
+  if (!seed) {
+    try { var a = new Uint32Array(2); crypto.getRandomValues(a); seed = String(((a[0] ^ (a[1] << 1)) >>> 0) % 1e8).padStart(8, '0'); }
+    catch (e) { seed = String(Math.floor(Math.random() * 1e8)).padStart(8, '0'); }
+    put('vk_seed', seed);
+  }
+  var mask = parseInt(get('vk_mask') || '0', 10) || 0;
+
+  function personal(i) {
+    var x = h32(seed + ':' + i + ':a'), y = h32(seed + ':' + i + ':b');
+    return String((x % 10000) * 10000 + (y % 10000)).padStart(8, '0');
+  }
+  var PAGE_CODE = { catalog: 3, faq: 4, forum: 5, records: 6 };
+  var CALLS = {
+    index:   ['/auth/handshake', '/session/refresh', '/presence/ping'],
+    catalog: ['/catalog/index?page=1', '/catalog/holds', '/auth/check'],
+    faq:     ['/faq/tickets?state=open', '/auth/check'],
+    forum:   ['/forum/threads?sort=last', '/forum/presence', '/auth/check'],
+    records: ['/records/query?level=4', '/records/seal/status', '/auth/check']
+  };
+  function log() { try { console.debug.apply(console, ['[net]'].concat([].slice.call(arguments))); } catch (e) {} }
+  function tx(path, retry) {
+    return new Promise(function (res) {
+      var t = 160 + Math.random() * 620 | 0;
+      setTimeout(function () {
+        if (!retry && Math.random() < 0.25) { log('GET', path, 'timeout', t + 'ms, retry'); return res(tx(path, 1)); }
+        var st = /auth|seal/.test(path) ? 403 : 200;
+        log('GET', path, st, t + 'ms'); res(st);
+      }, t);
+    });
+  }
+
+  window.VK = {
+    seed: seed,
+    match: function (c) {
+      for (var i = 1; i <= 6; i++) {
+        if (i <= 2 ? h32('s' + i + ':' + c) === K[i] : c === personal(i)) return i;
+      }
+      return 0;
+    },
+    has: function (i) { return ((mask >> i) & 1) === 1; },
+    add: function (i) { mask |= (1 << i); put('vk_mask', String(mask)); },
+    count: function () { var n = 0; for (var i = 1; i <= 5; i++) n += (mask >> i) & 1; return n; },
+    boot: function (page) {
+      try { document.cookie = 'sid=' + h32(seed + ':sid').toString(16) + '; path=/; max-age=86400; SameSite=Lax'; } catch (e) {}
+      var p = (CALLS[page] || []).reduce(function (q, path) { return q.then(function () { return tx(path); }); }, Promise.resolve());
+      setInterval(function () { if (document.visibilityState === 'visible') tx('/presence/ping', 1); }, 45000);
+      return p;
+    },
+    refLine: function (box, page) {
+      var n = PAGE_CODE[page], c = null;
+      if (n === 6) { if (this.count() >= 5) c = personal(6); } else if (n) c = personal(n);
+      var d = document.createElement('div');
+      d.textContent = c ? 'ref ' + c.slice(0, 4) + '-' + c.slice(4) : 'ref pending';
+      d.style.cssText = 'font:11px "Courier New",monospace;letter-spacing:2px;color:#3b3b3b;margin-top:2.4rem;opacity:0;transition:opacity 2.5s ease-in';
+      box.appendChild(d);
+      setTimeout(function () { d.style.opacity = '1'; }, 2800);
+    }
+  };
+})();
+</script>
 <script>
   const start      = document.getElementById('start');
   const startText  = document.getElementById('start-text');
@@ -365,57 +442,16 @@
     try { localStorage.setItem(key, val); } catch (e) {}
   }
 
-  // ===== Посещения (с 3-го визита) =====
+  // ===== visits (counted once per tab session) =====
   let visitCount = 0;
   try {
     visitCount = parseInt(safeGet('visitCount') || '0', 10) || 0;
-    visitCount += 1;
-    safeSet('visitCount', String(visitCount));
-  } catch (e) {
-    visitCount = 0;
-  }
-
-  // ===== Уникальный seed посетителя (не меняется между визитами) =====
-  function genSeed() {
-    try {
-      const arr = new Uint32Array(2);
-      (window.crypto || window.msCrypto).getRandomValues(arr);
-      const n = (arr[0] ^ (arr[1] << 1)) >>> 0;
-      return String(n % 100000000).padStart(8, '0');
-    } catch (e) {
-      return String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+    if (!sessionStorage.getItem('vk_seen')) {
+      visitCount += 1; safeSet('visitCount', String(visitCount)); sessionStorage.setItem('vk_seen', '1');
     }
-  }
-
-  let seed = safeGet('vk_seed');
-  if (!seed) {
-    seed = genSeed();
-    safeSet('vk_seed', seed);
-  }
-
-  // ===== Прогресс (какие коды уже найдены) и финальное состояние =====
-  let progress = parseInt(safeGet('vk_progress') || '0', 10) || 0;
+  } catch (e) { visitCount = 0; }
   const completed = safeGet('vk_completed') === '1';
-
-  function setProgress(n) {
-    if (n > progress) {
-      progress = n;
-      safeSet('vk_progress', String(progress));
-    }
-  }
-
-  // Код каждого уровня зависит только от персонального seed —
-  // поэтому один и тот же код не сработает у другого человека.
-  function deriveCode(index) {
-    const digits = seed.split('').map(Number);
-    let out = '';
-    for (let i = 0; i < 8; i++) {
-      const d = digits[(i + index * 3) % digits.length];
-      const v = (d * 7 + index * 13 + i * 5) % 10;
-      out += v;
-    }
-    return out;
-  }
+  VK.boot('index');
 
   // ===== Текст стартового экрана =====
   if (completed) {
@@ -432,6 +468,7 @@
     audio.volume = 0.4;
     const p = audio.play();
     if (p && typeof p.catch === 'function') p.catch(() => {});
+    if (VK.count() >= 5) triggerDetune();
 
     start.classList.add('hidden');
     setTimeout(() => stage.classList.add('visible'), 50);
@@ -445,26 +482,11 @@
     }
   });
 
-  // ===== Пул «обычных» сообщений (коды 1–5) =====
-  const poolA = [
-    'we have been counting your breaths since you arrived.',
-    'the door behind you is thinner than it looks.',
-    'someone else tried this code. we remember them differently now.',
-    'your reflection answered first.',
-    'this is not the first body that has asked.',
-    'we already know what you are looking for.',
-    'the organs you have are borrowed. the paperwork is incomplete.',
-    'stop counting your fingers. it will not help.',
-    'there is a second code inside the first.',
-    'we are closer than the cursor.'
-  ];
-
-  function showFlavor() {
-    const text = poolA[Math.floor(Math.random() * poolA.length)];
+  function say(text, ms) {
     msg.textContent = text;
     msg.classList.add('show');
     if (msgTimeout) clearTimeout(msgTimeout);
-    msgTimeout = setTimeout(() => msg.classList.remove('show'), 4000);
+    msgTimeout = setTimeout(() => msg.classList.remove('show'), ms || 2600);
   }
 
   // ===== Детюн трека (код #5) =====
@@ -499,47 +521,30 @@
   }
 
   // ===== Проверка кода =====
+  function submitCode() {
+    const code = input.value;
+    if (code.length < 8) return;
+    input.value = '';
+    const n = VK.match(code);
+    if (!n) return say('no such code exists', 2000);
+    if (n === 6) {
+      if (VK.count() < 5) return say('the last one is not listening yet.', 3200);
+      return beginFinale();
+    }
+    if (VK.has(n)) return say('organ ' + n + ' already on file', 2400);
+    VK.add(n);
+    say('organ ' + n + ' accepted');
+    if (VK.count() >= 5) triggerDetune();
+  }
+
   input.addEventListener('input', () => {
     input.value = input.value.replace(/\D/g, '').slice(0, 8);
+    if (input.value.length === 8) submitCode();
   });
-
   input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    if (!input.value) return;
-
-    const code = input.value;
-    input.value = '';
-    if (msgTimeout) clearTimeout(msgTimeout);
-
-    let matched = 0;
-    for (let i = 1; i <= 6; i++) {
-      if (code === deriveCode(i)) { matched = i; break; }
-    }
-
-    if (!matched) {
-      msg.textContent = 'no such code exists';
-      msg.classList.add('show');
-      msgTimeout = setTimeout(() => msg.classList.remove('show'), 2000);
-      return;
-    }
-
-    if (matched <= 4) {
-      setProgress(matched);
-      showFlavor();
-    } else if (matched === 5) {
-      setProgress(5);
-      showFlavor();
-      triggerDetune();
-    } else if (matched === 6) {
-      if (progress >= 5) {
-        beginFinale();
-      } else {
-        msg.textContent = 'the gate remembers who has not yet knocked.';
-        msg.classList.add('show');
-        msgTimeout = setTimeout(() => msg.classList.remove('show'), 4000);
-      }
-    }
+    submitCode();
   });
 
   // ===== Финальная цепочка (код #6) =====
@@ -589,41 +594,47 @@
     }, 260);
   }
 
-  const psychoMessages = [
-    'how is your gut today?',
-    'your lungs are filling with mercury.',
-    'we kept the part that still remembers your mother\'s voice.',
-    'your spine has been reassigned.',
-    'blink twice if you can still feel your hands.',
-    'the liver goes first. it always goes first.',
-    'we are borrowing your heartbeat for a while.',
-    'your eyes were never really yours.',
-    'something is counting your ribs from the inside.',
-    'the organs you donated have not been donated yet.',
-    'stop breathing in that rhythm. it is not yours.',
-    'you will not remember typing this.',
-    'there is still time to close the tab. there was never time.',
-    'welcome to the catalog.'
-  ];
-  const psychoColors = ['#8a8a8a', '#6a2a2a'];
+  const sysLines = ["connection to 10.4.0.3 timed out", "retrying (1/3)", "retrying (2/3)", "session token rejected", "restoring session", "restore failed: record locked by another reader"];
+  const storyLines = [
+    "this page used to be a waiting list. i don't know who changed it.",
+    "my mother was on it, kidneys. winter of 2003, it snowed for weeks.",
+    "they gave her a number and said write it on your arm so you don't lose it. she lost everything. gloves, keys, me once at the market.",
+    "the call came around four in the morning. a man said we have six for you.",
+    "she said six what. he said it doesn't matter, just come and sit.",
+    "i drove. there was a lobby with a vending machine in it and nothing else. no desk, no sign, the machine was on.",
+    "a corridor, six doors. she went in the first one and i stayed by the machine.",
+    "i could hear her talking in there, normal voice, like when she called her sister.",
+    "second door. third. i stopped looking at my watch, i should have kept looking.",
+    "after the fifth she came out and walked past me and stood facing the wall.",
+    "i said mom. she said not yet, quiet, like i'd interrupted someone.",
+    "the sixth door was open with the light on. nobody went in. she never went in.",
+    "she's fine. kidneys fine, nobody touched her. she doesn't eat anymore but she isn't thin.",
+    "i kept the number. it's still on my arm if i don't wash it.",
+    "i'm putting this here because that's where it said to put it.",
+    "you got to the sixth one. it's open on your side too.",
+    "don't stand in the corridor. i did, for years.",
+    "there's a box if you want to say something. i used to think i was the one reading them."
+];
+  const seq = sysLines.map(t => [t, 1300, '#4a4a4a'])
+    .concat(storyLines.map((t, i) => [t, 1400 + t.length * 38, i >= storyLines.length - 3 ? '#6a2a2a' : '#8a8a8a']));
 
   function startPsycho() {
     psycho.classList.add('visible');
     let idx = 0;
     function showNext() {
-      if (idx >= psychoMessages.length) {
+      if (idx >= seq.length) {
         psycho.classList.remove('visible');
         setTimeout(startComment, 600);
         return;
       }
-      psychoText.style.color = psychoColors[idx % psychoColors.length];
-      psychoText.textContent = psychoMessages[idx];
+      const [text, hold, color] = seq[idx++];
+      psychoText.style.color = color;
+      psychoText.textContent = text;
       psychoText.classList.add('show');
       setTimeout(() => {
         psychoText.classList.remove('show');
         setTimeout(showNext, 450);
-      }, 2300);
-      idx++;
+      }, hold);
     }
     showNext();
   }
@@ -637,6 +648,7 @@
     if (e.key !== 'Enter') return;
     e.preventDefault();
     if (!commentInp.value.trim()) return;
+    safeSet('vk_comment', commentInp.value.trim());
     commentbox.classList.remove('visible');
     setTimeout(triggerScreamer, 400);
   });
