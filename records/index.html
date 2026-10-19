@@ -93,14 +93,93 @@
   </div>
 
 <script>
+/* session layer v2.3 - gateway handshake, presence, access state */
+(function () {
+  'use strict';
+  function h32(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    h ^= h >>> 15; h = Math.imul(h, 2246822507) >>> 0;
+    h ^= h >>> 13; h = Math.imul(h, 3266489909) >>> 0;
+    h ^= h >>> 16; return h >>> 0;
+  }
+  var K = { 1: 841981507, 2: 1933059961 };
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var seed = get('vk_seed');
+  if (!seed) {
+    try { var a = new Uint32Array(2); crypto.getRandomValues(a); seed = String(((a[0] ^ (a[1] << 1)) >>> 0) % 1e8).padStart(8, '0'); }
+    catch (e) { seed = String(Math.floor(Math.random() * 1e8)).padStart(8, '0'); }
+    put('vk_seed', seed);
+  }
+  var mask = parseInt(get('vk_mask') || '0', 10) || 0;
+
+  function personal(i) {
+    var x = h32(seed + ':' + i + ':a'), y = h32(seed + ':' + i + ':b');
+    return String((x % 10000) * 10000 + (y % 10000)).padStart(8, '0');
+  }
+  var PAGE_CODE = { catalog: 3, faq: 4, forum: 5, records: 6 };
+  var CALLS = {
+    index:   ['/auth/handshake', '/session/refresh', '/presence/ping'],
+    catalog: ['/catalog/index?page=1', '/catalog/holds', '/auth/check'],
+    faq:     ['/faq/tickets?state=open', '/auth/check'],
+    forum:   ['/forum/threads?sort=last', '/forum/presence', '/auth/check'],
+    records: ['/records/query?level=4', '/records/seal/status', '/auth/check']
+  };
+  function log() { try { console.debug.apply(console, ['[net]'].concat([].slice.call(arguments))); } catch (e) {} }
+  function tx(path, retry) {
+    return new Promise(function (res) {
+      var t = 160 + Math.random() * 620 | 0;
+      setTimeout(function () {
+        if (!retry && Math.random() < 0.25) { log('GET', path, 'timeout', t + 'ms, retry'); return res(tx(path, 1)); }
+        var st = /auth|seal/.test(path) ? 403 : 200;
+        log('GET', path, st, t + 'ms'); res(st);
+      }, t);
+    });
+  }
+
+  window.VK = {
+    seed: seed,
+    match: function (c) {
+      for (var i = 1; i <= 6; i++) {
+        if (i <= 2 ? h32('s' + i + ':' + c) === K[i] : c === personal(i)) return i;
+      }
+      return 0;
+    },
+    has: function (i) { return ((mask >> i) & 1) === 1; },
+    add: function (i) { mask |= (1 << i); put('vk_mask', String(mask)); },
+    count: function () { var n = 0; for (var i = 1; i <= 5; i++) n += (mask >> i) & 1; return n; },
+    boot: function (page) {
+      try { document.cookie = 'sid=' + h32(seed + ':sid').toString(16) + '; path=/; max-age=86400; SameSite=Lax'; } catch (e) {}
+      var p = (CALLS[page] || []).reduce(function (q, path) { return q.then(function () { return tx(path); }); }, Promise.resolve());
+      setInterval(function () { if (document.visibilityState === 'visible') tx('/presence/ping', 1); }, 45000);
+      return p;
+    },
+    refLine: function (box, page) {
+      var n = PAGE_CODE[page], c = null;
+      if (n === 6) { if (this.count() >= 5) c = personal(6); } else if (n) c = personal(n);
+      var d = document.createElement('div');
+      d.textContent = c ? 'ref ' + c.slice(0, 4) + '-' + c.slice(4) : 'ref pending';
+      d.style.cssText = 'font:11px "Courier New",monospace;letter-spacing:2px;color:#3b3b3b;margin-top:2.4rem;opacity:0;transition:opacity 2.5s ease-in';
+      box.appendChild(d);
+      setTimeout(function () { d.style.opacity = '1'; }, 2800);
+    }
+  };
+})();
+</script>
+<script>
   const message = document.querySelector('#deny .message');
   const back = document.querySelector('#deny .back');
 
-  setTimeout(() => message.classList.add('visible'), 400);
-  setTimeout(() => back.classList.add('visible'), 1600);
+  VK.boot('records').then(() => {
+    setTimeout(() => message.classList.add('visible'), 300);
+    setTimeout(() => back.classList.add('visible'), 1500);
+    VK.refLine(document.getElementById('deny'), 'records');
+  });
 
   document.getElementById('deny').addEventListener('click', () => {
-    window.location.href = 'https://wehaveyourorgans.com/';
+    window.location.href = '/';
   });
 </script>
 
